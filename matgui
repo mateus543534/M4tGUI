@@ -7,6 +7,12 @@ gui.ResetOnSpawn = false
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
 
+-- vars pra resize
+local resizing = false
+local resizeStartMousePos
+local resizeStartSize
+local minSize = Vector2.new(300, 200)
+
 -- frame principal
 local mainFrame = Instance.new("Frame", gui)
 mainFrame.Size = UDim2.new(0, 500, 0, 350)
@@ -15,11 +21,20 @@ mainFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
 mainFrame.Active = true
 mainFrame.Draggable = true
 mainFrame.Name = "MainFrame"
+mainFrame.ClipsDescendants = true
+mainFrame.BorderSizePixel = 0
+
+-- bordas arredondadas
+local corner = Instance.new("UICorner", mainFrame)
+corner.CornerRadius = UDim.new(0, 10)
 
 -- barra superior
 local topBar = Instance.new("Frame", mainFrame)
 topBar.Size = UDim2.new(1, 0, 0, 30)
 topBar.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+
+local topCorner = Instance.new("UICorner", topBar)
+topCorner.CornerRadius = UDim.new(0, 10)
 
 -- botões de abas
 local menuBtn = Instance.new("TextButton", topBar)
@@ -78,6 +93,57 @@ miniBtn.Text = "-"
 miniBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
 miniBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
 miniBtn.TextScaled = true
+
+-- botão de redimensionar no canto baixo direito
+local resizeBtn = Instance.new("Frame", mainFrame)
+resizeBtn.Size = UDim2.new(0, 20, 0, 20)
+resizeBtn.Position = UDim2.new(1, -20, 1, -20)
+resizeBtn.BackgroundColor3 = Color3.fromRGB(80, 80, 80)
+resizeBtn.AnchorPoint = Vector2.new(1, 1)
+resizeBtn.Active = true
+resizeBtn.ZIndex = 10
+
+local resizeCorner = Instance.new("UICorner", resizeBtn)
+resizeCorner.CornerRadius = UDim.new(0, 6)
+
+-- muda o cursor pra indicar resize (só se o executor suportar)
+resizeBtn.MouseEnter:Connect(function()
+	if UserInputService.MouseIconEnabled ~= nil then
+		UserInputService.MouseIconEnabled = true
+		UserInputService.MouseIcon = "rbxasset://SystemCursors/SizeNWSE"
+	end
+end)
+
+resizeBtn.MouseLeave:Connect(function()
+	if UserInputService.MouseIconEnabled ~= nil then
+		UserInputService.MouseIconEnabled = true
+		UserInputService.MouseIcon = ""
+	end
+end)
+
+resizeBtn.InputBegan:Connect(function(input)
+	if input.UserInputType == Enum.UserInputType.MouseButton1 then
+		resizing = true
+		resizeStartMousePos = UserInputService:GetMouseLocation()
+		resizeStartSize = Vector2.new(mainFrame.AbsoluteSize.X, mainFrame.AbsoluteSize.Y)
+		input.Changed:Connect(function()
+			if input.UserInputState == Enum.UserInputState.End then
+				resizing = false
+			end
+		end)
+	end
+end)
+
+resizeBtn.InputChanged:Connect(function(input)
+	if input.UserInputType == Enum.UserInputType.MouseMovement and resizing then
+		local mousePos = UserInputService:GetMouseLocation()
+		local delta = mousePos - resizeStartMousePos
+		local newSize = resizeStartSize + Vector2.new(delta.X, delta.Y)
+		if newSize.X < minSize.X then newSize = Vector2.new(minSize.X, newSize.Y) end
+		if newSize.Y < minSize.Y then newSize = Vector2.new(newSize.X, minSize.Y) end
+		mainFrame.Size = UDim2.new(0, newSize.X, 0, newSize.Y)
+	end
+end)
 
 -- abas
 local menuTab = Instance.new("Frame", mainFrame)
@@ -173,9 +239,11 @@ noclipSwitch.MouseButton1Click:Connect(function()
 end)
 
 RunService.Stepped:Connect(function()
-	if isNoclip and player.Character then
+	if player.Character then
 		for _, part in pairs(player.Character:GetDescendants()) do
-			if part:IsA("BasePart") then part.CanCollide = false end
+			if part:IsA("BasePart") then
+				part.CanCollide = not isNoclip and true or false
+			end
 		end
 	end
 end)
@@ -199,18 +267,42 @@ flySwitch.TextScaled = true
 
 local flying = false
 local flyKeys = {W = false, A = false, S = false, D = false, Space = false, Shift = false}
+local humanoid = nil
+local rootPart = nil
+local speed = 50
+
+local function startFly()
+	if flying then return end
+	flying = true
+	humanoid = character:FindFirstChildOfClass("Humanoid")
+	rootPart = character:FindFirstChild("HumanoidRootPart")
+	if humanoid then
+		humanoid:ChangeState(Enum.HumanoidStateType.Physics)
+	end
+end
+
+local function stopFly()
+	if not flying then return end
+	flying = false
+	if humanoid then
+		humanoid:ChangeState(Enum.HumanoidStateType.GettingUp)
+	end
+end
 
 flySwitch.MouseButton1Click:Connect(function()
-	flying = not flying
-	flySwitch.Text = flying and "ON" or "OFF"
-	flySwitch.BackgroundColor3 = flying and Color3.fromRGB(0, 100, 0) or Color3.fromRGB(100, 0, 0)
-	if flying and character:FindFirstChildOfClass("Humanoid") then
-		character:FindFirstChildOfClass("Humanoid"):ChangeState(11)
+	if flying then
+		stopFly()
+		flySwitch.Text = "OFF"
+		flySwitch.BackgroundColor3 = Color3.fromRGB(100, 0, 0)
+	else
+		startFly()
+		flySwitch.Text = "ON"
+		flySwitch.BackgroundColor3 = Color3.fromRGB(0, 100, 0)
 	end
 end)
 
-UserInputService.InputBegan:Connect(function(input, gpe)
-	if gpe then return end
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+	if gameProcessed then return end
 	local code = input.KeyCode
 	if code == Enum.KeyCode.W then flyKeys.W = true end
 	if code == Enum.KeyCode.A then flyKeys.A = true end
@@ -218,8 +310,22 @@ UserInputService.InputBegan:Connect(function(input, gpe)
 	if code == Enum.KeyCode.D then flyKeys.D = true end
 	if code == Enum.KeyCode.Space then flyKeys.Space = true end
 	if code == Enum.KeyCode.LeftShift then flyKeys.Shift = true end
-	if code == Enum.KeyCode.E then flySwitch:Activate() end
-	if code == Enum.KeyCode.Q then noclipSwitch:Activate() end
+	if code == Enum.KeyCode.E then
+		if flying then
+			stopFly()
+			flySwitch.Text = "OFF"
+			flySwitch.BackgroundColor3 = Color3.fromRGB(100, 0, 0)
+		else
+			startFly()
+			flySwitch.Text = "ON"
+			flySwitch.BackgroundColor3 = Color3.fromRGB(0, 100, 0)
+		end
+	end
+	if code == Enum.KeyCode.Q then
+		isNoclip = not isNoclip
+		noclipSwitch.Text = isNoclip and "ON" or "OFF"
+		noclipSwitch.BackgroundColor3 = isNoclip and Color3.fromRGB(0, 100, 0) or Color3.fromRGB(100, 0, 0)
+	end
 end)
 
 UserInputService.InputEnded:Connect(function(input)
@@ -232,18 +338,20 @@ UserInputService.InputEnded:Connect(function(input)
 	if code == Enum.KeyCode.LeftShift then flyKeys.Shift = false end
 end)
 
-RunService.RenderStepped:Connect(function()
-	if flying and character and character:FindFirstChild("HumanoidRootPart") then
+RunService.RenderStepped:Connect(function(delta)
+	if flying and rootPart then
 		local cam = workspace.CurrentCamera
 		local dir = Vector3.new()
-		if flyKeys.W then dir += cam.CFrame.LookVector end
-		if flyKeys.S then dir -= cam.CFrame.LookVector end
-		if flyKeys.A then dir -= cam.CFrame.RightVector end
-		if flyKeys.D then dir += cam.CFrame.RightVector end
-		if flyKeys.Space then dir += Vector3.new(0,1,0) end
-		if flyKeys.Shift then dir -= Vector3.new(0,1,0) end
+		if flyKeys.W then dir = dir + cam.CFrame.LookVector end
+		if flyKeys.S then dir = dir - cam.CFrame.LookVector end
+		if flyKeys.A then dir = dir - cam.CFrame.RightVector end
+		if flyKeys.D then dir = dir + cam.CFrame.RightVector end
+		if flyKeys.Space then dir = dir + Vector3.new(0, 1, 0) end
+		if flyKeys.Shift then dir = dir - Vector3.new(0, 1, 0) end
+
 		if dir.Magnitude > 0 then
-			character.HumanoidRootPart.CFrame = character.HumanoidRootPart.CFrame + dir.Unit * (50 * RunService.RenderStepped:Wait())
+			dir = dir.Unit * speed * delta
+			rootPart.CFrame = rootPart.CFrame + dir
 		end
 	end
 end)
