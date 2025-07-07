@@ -7,28 +7,28 @@ gui.ResetOnSpawn = false
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
 
--- vars pra resize
+-- VARS REDIM E DRAG
 local resizing = false
+local dragging = false
+local dragStartPos, dragStartMouse
 local resizeStartMousePos
 local resizeStartSize
 local minSize = Vector2.new(300, 200)
 
--- frame principal
+-- FRAME PRINCIPAL
 local mainFrame = Instance.new("Frame", gui)
 mainFrame.Size = UDim2.new(0, 500, 0, 350)
 mainFrame.Position = UDim2.new(0.5, -250, 0.5, -175)
 mainFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
 mainFrame.Active = true
-mainFrame.Draggable = true
 mainFrame.Name = "MainFrame"
 mainFrame.ClipsDescendants = true
 mainFrame.BorderSizePixel = 0
 
--- bordas arredondadas
 local corner = Instance.new("UICorner", mainFrame)
 corner.CornerRadius = UDim.new(0, 10)
 
--- barra superior
+-- BARRA SUPERIOR
 local topBar = Instance.new("Frame", mainFrame)
 topBar.Size = UDim2.new(1, 0, 0, 30)
 topBar.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
@@ -36,7 +36,7 @@ topBar.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
 local topCorner = Instance.new("UICorner", topBar)
 topCorner.CornerRadius = UDim.new(0, 10)
 
--- botões de abas
+-- BOTÕES ABA
 local menuBtn = Instance.new("TextButton", topBar)
 menuBtn.Size = UDim2.new(0, 100, 1, 0)
 menuBtn.Text = "Menu"
@@ -52,7 +52,7 @@ playerBtn.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
 playerBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
 playerBtn.TextScaled = true
 
--- minimizar e fechar
+-- MINIMIZAR E FECHAR
 local minimizeBtn = Instance.new("TextButton", topBar)
 minimizeBtn.Size = UDim2.new(0, 25, 0, 25)
 minimizeBtn.Position = UDim2.new(1, -50, 0, 2)
@@ -69,7 +69,7 @@ closeBtn.BackgroundColor3 = Color3.fromRGB(100, 0, 0)
 closeBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
 closeBtn.TextScaled = true
 
--- frame minimizado
+-- FRAME MINIMIZADO
 local miniFrame = Instance.new("Frame", gui)
 miniFrame.Size = UDim2.new(0, 150, 0, 30)
 miniFrame.Position = mainFrame.Position
@@ -94,7 +94,7 @@ miniBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
 miniBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
 miniBtn.TextScaled = true
 
--- botão de redimensionar no canto baixo direito
+-- BOTÃO REDIMENSIONAR (CANTO BAIXO DIREITO)
 local resizeBtn = Instance.new("Frame", mainFrame)
 resizeBtn.Size = UDim2.new(0, 20, 0, 20)
 resizeBtn.Position = UDim2.new(1, -20, 1, -20)
@@ -106,14 +106,13 @@ resizeBtn.ZIndex = 10
 local resizeCorner = Instance.new("UICorner", resizeBtn)
 resizeCorner.CornerRadius = UDim.new(0, 6)
 
--- muda o cursor pra indicar resize (só se o executor suportar)
+-- CURSOR DE RESIZE
 resizeBtn.MouseEnter:Connect(function()
 	if UserInputService.MouseIconEnabled ~= nil then
 		UserInputService.MouseIconEnabled = true
 		UserInputService.MouseIcon = "rbxasset://SystemCursors/SizeNWSE"
 	end
 end)
-
 resizeBtn.MouseLeave:Connect(function()
 	if UserInputService.MouseIconEnabled ~= nil then
 		UserInputService.MouseIconEnabled = true
@@ -121,6 +120,7 @@ resizeBtn.MouseLeave:Connect(function()
 	end
 end)
 
+-- EVENTOS REDIMENSIONAR
 resizeBtn.InputBegan:Connect(function(input)
 	if input.UserInputType == Enum.UserInputType.MouseButton1 then
 		resizing = true
@@ -145,7 +145,34 @@ resizeBtn.InputChanged:Connect(function(input)
 	end
 end)
 
--- abas
+-- MOVIMENTAÇÃO MAIS FLUIDA DO GUI
+topBar.InputBegan:Connect(function(input)
+	if input.UserInputType == Enum.UserInputType.MouseButton1 and not resizing then
+		dragging = true
+		dragStartMouse = UserInputService:GetMouseLocation()
+		dragStartPos = mainFrame.Position
+		input.Changed:Connect(function()
+			if input.UserInputState == Enum.UserInputState.End then
+				dragging = false
+			end
+		end)
+	end
+end)
+
+topBar.InputChanged:Connect(function(input)
+	if input.UserInputType == Enum.UserInputType.MouseMovement and dragging and not resizing then
+		local mousePos = UserInputService:GetMouseLocation()
+		local delta = mousePos - dragStartMouse
+		mainFrame.Position = UDim2.new(
+			dragStartPos.X.Scale,
+			dragStartPos.X.Offset + delta.X,
+			dragStartPos.Y.Scale,
+			dragStartPos.Y.Offset + delta.Y
+		)
+	end
+end)
+
+-- ABAS
 local menuTab = Instance.new("Frame", mainFrame)
 menuTab.Size = UDim2.new(1, 0, 1, -30)
 menuTab.Position = UDim2.new(0, 0, 0, 30)
@@ -158,7 +185,7 @@ playerTab.Position = UDim2.new(0, 0, 0, 30)
 playerTab.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
 playerTab.Visible = false
 
--- trocar abas
+-- TROCA ABA
 local function openTab(tabName)
 	menuTab.Visible = (tabName == "menu")
 	playerTab.Visible = (tabName == "player")
@@ -170,13 +197,12 @@ menuBtn.MouseButton1Click:Connect(function() openTab("menu") end)
 playerBtn.MouseButton1Click:Connect(function() openTab("player") end)
 openTab("menu")
 
--- minimizar/maximizar
+-- MINIMIZAR / MAXIMIZAR
 minimizeBtn.MouseButton1Click:Connect(function()
 	mainFrame.Visible = false
 	miniFrame.Position = mainFrame.Position
 	miniFrame.Visible = true
 end)
-
 miniBtn.MouseButton1Click:Connect(function()
 	mainFrame.Visible = true
 	mainFrame.Position = miniFrame.Position
@@ -187,7 +213,7 @@ closeBtn.MouseButton1Click:Connect(function()
 	gui:Destroy()
 end)
 
--- creditos menu
+-- MENU: CRÉDITOS + DISCORD COPY
 local creditsText = Instance.new("TextLabel", menuTab)
 creditsText.Size = UDim2.new(1, -20, 0, 60)
 creditsText.Position = UDim2.new(0, 10, 0, 10)
@@ -214,7 +240,7 @@ if setclipboard then
 	end)
 end
 
--- player tab: noclip
+-- PLAYER TAB: noclip
 local noclipLabel = Instance.new("TextLabel", playerTab)
 noclipLabel.Size = UDim2.new(0, 100, 0, 30)
 noclipLabel.Position = UDim2.new(0, 10, 0, 10)
@@ -248,110 +274,161 @@ RunService.Stepped:Connect(function()
 	end
 end)
 
--- player tab: fly
+-- PLAYER TAB: invisible
+local invisibleLabel = Instance.new("TextLabel", playerTab)
+invisibleLabel.Size = UDim2.new(0, 100, 0, 30)
+invisibleLabel.Position = UDim2.new(0, 10, 0, 50)
+invisibleLabel.BackgroundTransparency = 1
+invisibleLabel.Text = "invisible"
+invisibleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+invisibleLabel.TextScaled = true
+
+local invisibleSwitch = Instance.new("TextButton", playerTab)
+invisibleSwitch.Size = UDim2.new(0, 60, 0, 30)
+invisibleSwitch.Position = UDim2.new(0, 120, 0, 50)
+invisibleSwitch.BackgroundColor3 = Color3.fromRGB(100, 0, 0)
+invisibleSwitch.Text = "OFF"
+invisibleSwitch.TextColor3 = Color3.fromRGB(255, 255, 255)
+invisibleSwitch.TextScaled = true
+
+local isInvisible = false
+invisibleSwitch.MouseButton1Click:Connect(function()
+	isInvisible = not isInvisible
+	invisibleSwitch.Text = isInvisible and "ON" or "OFF"
+	invisibleSwitch.BackgroundColor3 = isInvisible and Color3.fromRGB(0, 100, 0) or Color3.fromRGB(100, 0, 0)
+	if player.Character then
+		for _, part in pairs(player.Character:GetDescendants()) do
+			if part:IsA("BasePart") or part:IsA("Decal") then
+				if isInvisible then
+					part.Transparency = 1
+				else
+					part.Transparency = 0
+				end
+			end
+		end
+	end
+end)
+
+-- PLAYER TAB: fly (PENDING FIXES)
 local flyLabel = Instance.new("TextLabel", playerTab)
-flyLabel.Size = UDim2.new(0, 100, 0, 30)
-flyLabel.Position = UDim2.new(0, 10, 0, 50)
+flyLabel.Size = UDim2.new(0, 200, 0, 30)
+flyLabel.Position = UDim2.new(0, 10, 0, 90)
 flyLabel.BackgroundTransparency = 1
-flyLabel.Text = "fly"
+flyLabel.Text = "fly (PENDING FIXES)"
 flyLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
 flyLabel.TextScaled = true
 
-local flySwitch = Instance.new("TextButton", playerTab)
-flySwitch.Size = UDim2.new(0, 60, 0, 30)
-flySwitch.Position = UDim2.new(0, 120, 0, 50)
-flySwitch.BackgroundColor3 = Color3.fromRGB(100, 0, 0)
-flySwitch.Text = "OFF"
-flySwitch.TextColor3 = Color3.fromRGB(255, 255, 255)
-flySwitch.TextScaled = true
+-- PLAYER TAB: walkspeed com roleta
+local wsLabel = Instance.new("TextLabel", playerTab)
+wsLabel.Position = UDim2.new(0,10,0,130)
+wsLabel.Size = UDim2.new(0, 120, 0, 30)
+wsLabel.BackgroundTransparency = 1
+wsLabel.TextColor3 = Color3.new(1,1,1)
+wsLabel.TextScaled = true
+wsLabel.Text = "walkspeed"
 
-local flying = false
-local flyKeys = {W = false, A = false, S = false, D = false, Space = false, Shift = false}
-local humanoid = nil
-local rootPart = nil
-local speed = 50
+local wsBar = Instance.new("Frame", playerTab)
+wsBar.Position = UDim2.new(0, 130, 0, 140)
+wsBar.Size = UDim2.new(0, 200, 0, 10)
+wsBar.BackgroundColor3 = Color3.fromRGB(80,80,80)
+wsBar.ClipsDescendants = true
+local wsCorner = Instance.new("UICorner", wsBar)
+wsCorner.CornerRadius = UDim.new(0,5)
 
-local function startFly()
-	if flying then return end
-	flying = true
-	humanoid = character:FindFirstChildOfClass("Humanoid")
-	rootPart = character:FindFirstChild("HumanoidRootPart")
-	if humanoid then
-		humanoid:ChangeState(Enum.HumanoidStateType.Physics)
-	end
-end
+local wsBall = Instance.new("Frame", wsBar)
+wsBall.Size = UDim2.new(0, 20, 0, 20)
+wsBall.Position = UDim2.new(0, 0, 0.5, -10)
+wsBall.BackgroundColor3 = Color3.fromRGB(0, 150, 255)
+local wsBallCorner = Instance.new("UICorner", wsBall)
+wsBallCorner.CornerRadius = UDim.new(1,0)
+wsBall.Active = true
+wsBall.Draggable = false
 
-local function stopFly()
-	if not flying then return end
-	flying = false
-	if humanoid then
-		humanoid:ChangeState(Enum.HumanoidStateType.GettingUp)
-	end
-end
+local wsValueLabel = Instance.new("TextLabel", playerTab)
+wsValueLabel.Position = UDim2.new(0, 340, 0, 130)
+wsValueLabel.Size = UDim2.new(0, 60, 0, 30)
+wsValueLabel.BackgroundTransparency = 1
+wsValueLabel.TextColor3 = Color3.new(1,1,1)
+wsValueLabel.TextScaled = true
+wsValueLabel.Text = "16"
 
-flySwitch.MouseButton1Click:Connect(function()
-	if flying then
-		stopFly()
-		flySwitch.Text = "OFF"
-		flySwitch.BackgroundColor3 = Color3.fromRGB(100, 0, 0)
-	else
-		startFly()
-		flySwitch.Text = "ON"
-		flySwitch.BackgroundColor3 = Color3.fromRGB(0, 100, 0)
-	end
-end)
+local minSpeed = 16
+local maxSpeed = 60
+local draggingBall = false
 
-UserInputService.InputBegan:Connect(function(input, gameProcessed)
-	if gameProcessed then return end
-	local code = input.KeyCode
-	if code == Enum.KeyCode.W then flyKeys.W = true end
-	if code == Enum.KeyCode.A then flyKeys.A = true end
-	if code == Enum.KeyCode.S then flyKeys.S = true end
-	if code == Enum.KeyCode.D then flyKeys.D = true end
-	if code == Enum.KeyCode.Space then flyKeys.Space = true end
-	if code == Enum.KeyCode.LeftShift then flyKeys.Shift = true end
-	if code == Enum.KeyCode.E then
-		if flying then
-			stopFly()
-			flySwitch.Text = "OFF"
-			flySwitch.BackgroundColor3 = Color3.fromRGB(100, 0, 0)
-		else
-			startFly()
-			flySwitch.Text = "ON"
-			flySwitch.BackgroundColor3 = Color3.fromRGB(0, 100, 0)
+local function updateWalkSpeedFromPos(x)
+	local relativeX = math.clamp(x - wsBar.AbsolutePosition.X, 0, wsBar.AbsoluteSize.X)
+	local pct = relativeX / wsBar.AbsoluteSize.X
+	local speed = math.floor(minSpeed + (maxSpeed - minSpeed)*pct + 0.5)
+	wsValueLabel.Text = tostring(speed)
+	if character then
+		local humanoid = character:FindFirstChildOfClass("Humanoid")
+		if humanoid then
+			humanoid.WalkSpeed = speed
 		end
 	end
-	if code == Enum.KeyCode.Q then
-		isNoclip = not isNoclip
-		noclipSwitch.Text = isNoclip and "ON" or "OFF"
-		noclipSwitch.BackgroundColor3 = isNoclip and Color3.fromRGB(0, 100, 0) or Color3.fromRGB(100, 0, 0)
+	wsBall.Position = UDim2.new(pct, -wsBall.AbsoluteSize.X/2, 0.5, -wsBall.AbsoluteSize.Y/2)
+end
+
+wsBall.InputBegan:Connect(function(input)
+	if input.UserInputType == Enum.UserInputType.MouseButton1 then
+		draggingBall = true
+		UserInputService.MouseIconEnabled = true
 	end
 end)
 
-UserInputService.InputEnded:Connect(function(input)
-	local code = input.KeyCode
-	if code == Enum.KeyCode.W then flyKeys.W = false end
-	if code == Enum.KeyCode.A then flyKeys.A = false end
-	if code == Enum.KeyCode.S then flyKeys.S = false end
-	if code == Enum.KeyCode.D then flyKeys.D = false end
-	if code == Enum.KeyCode.Space then flyKeys.Space = false end
-	if code == Enum.KeyCode.LeftShift then flyKeys.Shift = false end
+wsBall.InputEnded:Connect(function(input)
+	if input.UserInputType == Enum.UserInputType.MouseButton1 then
+		draggingBall = false
+		UserInputService.MouseIconEnabled = true
+	end
 end)
 
-RunService.RenderStepped:Connect(function(delta)
-	if flying and rootPart then
-		local cam = workspace.CurrentCamera
-		local dir = Vector3.new()
-		if flyKeys.W then dir = dir + cam.CFrame.LookVector end
-		if flyKeys.S then dir = dir - cam.CFrame.LookVector end
-		if flyKeys.A then dir = dir - cam.CFrame.RightVector end
-		if flyKeys.D then dir = dir + cam.CFrame.RightVector end
-		if flyKeys.Space then dir = dir + Vector3.new(0, 1, 0) end
-		if flyKeys.Shift then dir = dir - Vector3.new(0, 1, 0) end
+UserInputService.InputChanged:Connect(function(input)
+	if draggingBall and input.UserInputType == Enum.UserInputType.MouseMovement then
+		updateWalkSpeedFromPos(input.Position.X)
+	end
+end)
 
-		if dir.Magnitude > 0 then
-			dir = dir.Unit * speed * delta
-			rootPart.CFrame = rootPart.CFrame + dir
+wsBar.InputBegan:Connect(function(input)
+	if input.UserInputType == Enum.UserInputType.MouseButton1 then
+		updateWalkSpeedFromPos(input.Position.X)
+	end
+end)
+
+-- inicializa walkspeed
+RunService.Heartbeat:Connect(function()
+	if not draggingBall and character then
+		local humanoid = character:FindFirstChildOfClass("Humanoid")
+		if humanoid and humanoid.WalkSpeed < minSpeed then
+			humanoid.WalkSpeed = minSpeed
 		end
 	end
 end)
+updateWalkSpeedFromPos(wsBar.AbsolutePosition.X)
+
+-- NOCOLIP REAL (loop para cancollide)
+RunService.Stepped:Connect(function()
+	if isNoclip and player.Character then
+		for _, v in pairs(player.Character:GetDescendants()) do
+			if v:IsA("BasePart") then
+				v.CanCollide = false
+			end
+		end
+	elseif player.Character then
+		for _, v in pairs(player.Character:GetDescendants()) do
+			if v:IsA("BasePart") then
+				v.CanCollide = true
+			end
+		end
+	end
+end)
+
+-- MINI FRAME MINIMIZADO
+miniBtn.MouseButton1Click:Connect(function()
+	mainFrame.Visible = true
+	mainFrame.Position = miniFrame.Position
+	miniFrame.Visible = false
+end)
+
+return gui
